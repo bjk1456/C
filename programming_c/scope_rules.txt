@@ -1,0 +1,123 @@
+4.5 Scope Rules
+The functions and external variables that make up a C program need not all be compiled at the same time; the source text of the program may be kept in several files, and previously compiled routines may be loaded from libraries. The two questions of interest are
+
+How are declarations written so that variables are properly declared during compilation?
+How are declarations set up so that all the pieces will be properly connected when the program is loaded?
+The scope of a name is the part of the program over which the name is defined. For an automatic variable declared at the beginning of a function, the scope is the function in which the name is declared, and variables of the same name in different functions are unrelated. The same is true of the arguments of the function.
+
+The scope of an external variable lasts from the point at which it is declared in a source file to the end of that file. For example, if val, sp, push, pop, and clear are defined in one file, in the order shown below, that is,
+
+int sp = 0;
+double val [MAXVAL];
+
+double push(f) { ... }
+
+double pop() { ... }
+
+clear() { ... }
+then the variables val and sp may be used in push, pop and clear simply by naming them, no further declarations are needed.
+
+On the other hand, if an external variable is to be referred to before it is defined, or if it is defined in a different source file from the one where it is being used, then an extern declaration is mandatory.
+
+It is important to distinguish between the declaration of an external variable and its definition. A declaration announces the properties of a variable (its type, size, etc.); a definition also causes storage to be allocated. If the lines
+
+int sp;
+double val[MAXVAL];
+appear outside of any function, they define the external variables sp and val, cause storage to be allocated, and also serve as the declaration for the rest of that source file. On the other hand, the lines
+
+extern int sp;
+extern double val[];
+declare for the rest of the source file that sp is an int and that val is a double array (whose size is determined elsewhere), but they do not create the variables or allocate storage for them.
+
+There must be only one definition of an external variable among all the files that make up the source program; other files may contain extern declarations to access it. (There may also be an extern declaration in the file containing the definition.) Any initialization of an external variable goes only with the definition. Array sizes must be specified with the definition, but are optional with an extern declaration.
+
+Although it is not a likely organization for this program, val and sp could be defined and initialized in one file, and the functions push, pop and clear defined in another. Then these definitions and declarations would be necessary to tie them together:
+
+In file 1:
+
+int sp = 0; /* stack pointer */
+double val[MAXVAL]; /* value stack */
+In file 2:
+
+extern int sp;
+extern double val[];
+
+double push(f) { ... }
+
+double pop() { ... }
+
+clear() { ... }
+Because the extern declarations in file 2 lie ahead of and outside the three functions, they apply to all; one set of declarations suffices for all of file 2.
+
+For larger programs, the #include file inclusion facility discussed later in this chapter allows one to keep only a single copy of the extern declarations for the program and have that inserted in each source file as it is being compiled.
+
+Let us now turn to the implementation of getop, the function that fetches the next operator or operand. The basic task is easy: skip blanks, tabs and newlines. If the next character is not a digit or a decimal point, return it. Otherwise, collect a string of digits (that might include a decimal point), and return NUMBER, the signal that a number has been collected.
+
+The routine is substantially complicated by an attempt to handle the situation properly when an input number is too long. getop reads digits (perhaps with an intervening decimal point) until it doesn't see any more, but only stores the ones that fit. If there was no overflow, it returns NUMBER and the string of digits. If the number was too long, however, getop discards the rest of the input line so the user can simply retype the line from the point of error; it returns TOOBIG as the overflow signal.
+
+EditCopyc_078_01getop(s, lim) /* get next operator or operand */
+char s[];
+int lim;
+{
+  int i, c;
+
+  while ((c = getch()) == ' ' || c == '\t' || c == '\n')
+    ;
+  if (c != '.' && (c < '0' || c > '9'))
+    return(c);
+  s[0] = c;
+  for (i = 1; (c = getchar()) >= '0' && c <= '9'; i++)
+    if (i < lim)
+      s[i] = c;
+  if (c == '.') {  /* collect fraction */
+    if (i < lim)
+      s[i] = c;
+    for (i++; (c=getchar()) >= '0' && c <= '9'; i++)
+      if (i < lim)
+        s[i] = c;
+  }
+  if (i < lim) {  /* number is ok */
+    ungetch(c);
+    s[i] = '\0';
+    return (NUMBER);
+  } else { /* it's too big; skip rest of line */
+    while (c != '\n' && c != EOF)
+      c = getchar();
+    s[lim-1] = '\0';
+    return(TOOBIG);
+  }
+}
+What are getch and ungetch? It is often the case that a program reading input cannot determine that it has read enough until it has read too much. One instance is collecting the characters that make up a number: until the first non-digit is seen, the number is not complete. But then the program has read one character too far, a character that it is not prepared for.
+
+The problem would be solved if it were possible to "un-read" the unwanted character. Then, every time the program reads one character too many, it could push it back on the input, so the rest of the code could behave as if it had never been read. Fortunately, it's easy to simulate un-getting a character, by writing a pair of cooperating functions. getch delivers the next input character to be considered; ungetch puts a character back on the input, so that the next call to getch will return it again.
+
+How they work together is simple. ungetch puts the pushed-back characters into a shared buffer - a character array. getch reads from the buffer if there is anything there; it calls getchar if the buffer is empty. There must also be an index variable which records the position of the current character in the buffer.
+
+Since the buffer and the index are shared by getch and ungetch and must retain their values between calls, they must be external to both routines. Thus we can write getch, ungetch, and their shared variables as:
+
+EditCopyc_079_01#include <stdio.h>
+#define BUFSIZE 100
+
+char buf[BUFSIZE]; /* buffer for ungetch */
+int bufp = 0; /* next free position in buf */
+
+getch() /* get a (possibly pushed back) character */
+{
+  return((bufp > 0) ? buf[--bufp] : getchar());
+}
+
+ungetch (c) /* push character back on input */
+int c;
+{
+  if (bufp > BUFSIZE)
+    printf("ungetch: too many characters\n");
+  else
+    buf[bufp++] = c;
+}
+We have used an array for the pushback, rather than a single character, since the generality may come in handy later.
+
+Exercise 4-4. Write a routine ungets(s) which will push back an entire string onto the input. Should ungets know about buf and bufp, or should it just use ungetch?
+
+Exercise 4-5. Suppose that there will never be more than one character of pushback. Modify getch and ungetch accordingly.
+
+Exercise 4-6. Our getch and ungetch do not handle a pushed-back EOF in a portable way. Decide what their properties ought to be if an EOF is pushed back, then implement your design.

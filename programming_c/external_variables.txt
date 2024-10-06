@@ -1,0 +1,136 @@
+4.4 External Variables
+A C program consists of a set of external objects, which are either variables or functions. The adjective "external" is used primarily in contrast to "internal," which describes the arguments and automatic variables defined inside functions. External variables are defined outside any function, and are thus potentially available to many functions. Functions themselves are always external, because C does not allow functions to be defined inside other functions. By default, external variables are also "global", so that all references to such a variable by the same name (even from functions compiled separately) are references to the same thing. In this sense, external variables are analogous to Fortran COMMON or PL/I EXTERNAL. We will see later how to define external variables and functions that are not globally available, but are instead visible only within a single source file.
+
+Because external variables are globally accessible, they provide an alternative to function arguments and returned values for communicating data between functions. Any function may access an external variable by referring to it by name, if the name has been declared somehow.
+
+If a large number of variables must be shared among functions, external variables are more convenient and efficient than long argument lists. As pointed out in Chapter 1, however, this reasoning should be applied with some caution, for it can have a bad effect on program structure, and lead to programs with many data connections between functions.
+
+A second reason for using external variables concerns initialization. In particular, external arrays may be initialized, but automatic arrays may not. We will treat initialization near the end of this chapter.
+
+The third reason for using external variables is their scope and lifetime. Automatic variables are internal to a function; they come into existence when the routine is entered, and disappear when it is left. External variables, on the other hand, are permanent. They do not come and go, so they retain values from one function invocation to the next. Thus if two functions must share some data, yet neither calls the other, it is often most convenient if the shared data is kept in external variables rather than passed in and out via arguments.
+
+Let us examine this issue further with a larger example. The problem is to write another calculator program, better than the previous one. This one permits +, -, *, /, and = (to print the answer). Because it is somewhat easier to implement, the calculator will use reverse Polish notation instead of infix. (Reverse Polish is the scheme used by, for example, Hewlett-Packard pocket calculators.) In reverse Polish notation, each operator follows its operands; an infix expression like
+
+(1 - 2) * (4 + 5) =
+is entered as
+
+1 2 - 4 5 + * =
+Parentheses are not needed.
+
+The implementation is quite simple. Each operand is pushed onto a stack; when an operator arrives, the proper number of operands (two for binary operators) are popped, the operator applied to them, and the result pushed back onto the stack. In the example above, for instance, 1 and 2 are pushed, then replaced by their difference, -1. Next, 4 and 5 are pushed and then replaced by their sum, 9. The product of -1 and 9, which is -9, replaces them on the stack. The = operator prints the top element without removing it (so intermediate steps in a calculation can be checked).
+
+The operations of pushing and popping a stack are trivial, but by the time error detection and recovery are added, they are long enough that it is better to put each in a separate function than to repeat the code throughout the whole program. And there should be a separate function for fetching the next input operator or operand. Thus the structure of the program is
+
+while (next operator or operand is not end of file)
+  if (number)
+    push it
+  else if (operator)
+    pop operands
+    do operation
+    push result
+  else
+    error
+The main design decision that has not yet been discussed is where the stack is, that is, what routines access it directly. One possibility is to keep it in main, and pass the stack and the current stack position to the routines that push and pop it. But main doesn't need to know about the variables that control the stack; it should think only in terms of pushing and popping. So we have decided to make the stack and its associated information external variables accessible to the push and pop functions but not to main.
+
+Translating this outline into code is easy enough. The main program is primarily a big switch on the type of operator or operand; this is perhaps a more typical use of switch than the one shown in Chapter 3.
+
+EditCopyc_074_01#include <stdio.h>
+#define MAXOP 20 /* max size of operand, operator */
+#define NUMBER '0' /* signal that number found */
+#define TOOBIG '9' /* signal that string is too big */
+
+main() /* reverse Polish desk calculator */
+{
+  int type;
+  char s[MAXOP];
+  double op2, atof(), pop(), push();
+
+  while ((type = getop(s, MAXOP)) != EOF)
+    switch (type) {
+
+    case NUMBER:
+        push(atof(s));
+        break;
+    case '+':
+        push(pop() + pop());
+        break;
+    case '*':
+        push(pop() * pop());
+        break;
+    case '-':
+        op2 = pop();
+        push(pop() - op2);
+        break;
+    case '/':
+        op2 = pop();
+        if (op2 != 0.0)
+          push(pop() / op2);
+        else
+          printf("zero divisor popped\n");
+        break;
+    case '=':
+        printf("\t%f\n", push(pop()));
+        break;
+    case 'c':
+        clear();
+        break;
+    case TOOBIG:
+        printf("%.20s ... is too long\n", s);
+        break;
+    default:
+        printf("unknown command %c\n", type);
+        break;
+    }
+}
+EditCopyc_075_01#include <stdio.h>
+#define MAXVAL 100 /* maximum depth of val stack */
+
+int sp = 0; /* stack pointer */
+double val[MAXVAL]; /* value stack */
+
+double push(f) /* push f onto value stack */
+double f;
+{
+  if (sp < MAXVAL)
+    return(val[sp++] = f);
+  else {
+    printf("error: stack full\n");
+    clear();
+    return(0);
+  }
+}
+
+double pop() /* pop top value from stack */
+{
+  if (sp > 0)
+    return(val[--sp]);
+  else {
+    printf("error: stack empty\n");
+    clear();
+    return(0);
+  }
+}
+
+clear() /* clear stack */
+{
+  sp = 0;
+}
+The command 'c' clears the stack, with a function clear which is also used by push and pop in case of error. We'll return to getop in a moment.
+
+As discussed in Chapter 1, a variable is external if it is defined outside the body of any function. Thus the stack and stack pointer which must be shared by push, pop, and clear are defined outside of these three functions. But main itself does not refer to the stack or stack pointer - the representation is carefully hidden. Thus the code for the = operator must use
+
+push(pop());
+to examine the top of the stack without disturbing it.
+
+Notice also that because + and * are commutative operators, the order in which the popped operands are combined is irrelevant, but for the - and / operators, the left and right operands must be distinguished.
+
+This example code above shows why it is important to remember the "K&R C Rearrangement License" as it applies to operators that are associative and commutative. If the code for the '-' operator above were written:
+
+push(pop() - pop());
+There is no guarantee the the left pop() will run before the right pop() - and since these functions access global variables and have side effects it is important to force the compiler not to rearrange the order of the function calls.
+
+To force the evaluation order the code is broken into two statements:
+
+op2 = pop();
+push(pop() - op2);
+Now you might think that the lesson is that the "K&R C Rearrangement License" (which was done to allow optimization and performance) is a bad idea. But the more important lesson is that writing low-level utility functions like push and pop which use global variables and have side effects is a dangerous pattern in any language.

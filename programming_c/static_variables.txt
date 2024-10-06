@@ -1,0 +1,22 @@
+4.6 Static Variables
+Static variables are a third class of storage, in addition to the extern and automatic that we have already met.
+
+static variables may be either internal or external. Internal static variables are local to a particular function just as automatic variables are, but unlike automatics, they remain in existence rather than coming and going each time the function is activated. This means that internal static variables provide private, permanent storage in a function. Character strings that appear within a function, such as the arguments of printf, are internal static.
+
+An external static variable is known within the remainder of the source file in which it is declared, but not in any other file. External static thus provides a way to hide names like buf and bufp in the getch-ungetch combination, which must be external so they can be shared, yet which should not be visible to users of getch and ungetch, so there is no possibility of conflict. If the two routines and the two variables are compiled in one file, as
+
+static char buf[BUFSIZE]; /* buffer for ungetch */
+static int bufp = 0; /* next free position in buf */
+
+getch() { ... }
+
+ungetch(c) { ... }
+then no other routine will be able to access buf and bufp; in fact, they will not conflict with the same names in other files of the same program.
+
+Static storage, whether internal or external, is specified by prefixing the normal declaration with the word static. The variable is external if it is defined outside of any function, and internal if defined inside a function.
+
+Normally, functions are external objects; their names are known globally. It is possible, however, for a function to be declared static; this makes its name unknown outside of the file in which it is declared.
+
+In C, "static" connotes not only permanence but also a degree of what might be called "privacy." Internal static objects are known only inside one function; external static objects (variables or functions) are known only within the source file in which they appear, and their names do not interfere with variables or functions of the same name in other files.
+
+External static variables and functions provide a way to conceal data objects and any internal routines that manipulate them so that other routines and data cannot conflict even inadvertently. For example, getch and ungetch form a "module" for character input and pushback; buf and bufp should be static so they are inaccessible from the outside. In the same way, push, pop and clear form a module for stack manipulation; val and sp should also be external static.
