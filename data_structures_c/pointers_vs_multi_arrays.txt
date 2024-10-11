@@ -1,0 +1,8 @@
+Pointers vs. Multi-dimensional Arrays
+Newcomers to C are sometimes confused about the difference between a two-dimensional array and an array of pointers, such as name in the example above. Given the declarations
+
+int a[10][10];
+int *b[10];
+the usage of a and b may be similar, in that a[5][5] and b[5][5] are both legal references to a single int. But a is a true array: all 100 storage cells have been allocated, and the conventional rectangular subscript calculation is done to find any given element. For b, however, the declaration only allocates 10 pointers; each must be set to point to an array of integers. Assuming that each does point to a ten-element array, then there will be 100 storage cells set aside, plus the ten cells for the pointers. Thus the array of pointers uses slightly more space, and may require an explicit initialization step. But it has two advantages: accessing an element is done by indirection through a pointer rather than by a multiplication and an addition, and the rows of the array may be of different lengths. That is, each element of b need not point to a ten-element vector; some may point to two elements, some to twenty, and some to none at all.
+
+Although we have phrased this discussion in terms of integers, by far the most frequent use of arrays of pointers is like that shown in month_name: to store character strings of diverse lengths.

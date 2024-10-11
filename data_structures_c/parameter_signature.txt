@@ -1,0 +1,13 @@
+In main we wrote
+
+for (p = keytab; p < keytab + NKEYS; p++)
+If p is a pointer to a structure, any arithmetic on p takes into account the actual size of the structure, so p++ increments p by the correct amount to get the next element of the array of structures. But don't assume that the size of a structure is the sum of the sizes of its members - because of alignment requirements for different objects, there may be "holes" in a structure.
+
+Finally, an aside on program format. When a function returns a complicated type, as in
+
+struct key *binary(word, tab, n)
+the function name can be hard to see, and to find with a text editor. Accordingly an alternate style is sometimes used:
+
+struct key *
+binary(word, tab, n)
+This is mostly a matter of personal taste; pick the form you like and hold to it.

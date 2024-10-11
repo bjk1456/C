@@ -1,0 +1,94 @@
+Pointers to Functions
+In C, a function itself is not a variable, but it is possible to define a pointer to a function, which can be manipulated, passed to functions, placed in arrays, and so on. We will illustrate this by modifying the sorting procedure written earlier in this chapter so that if the optional argument -n is given, it will sort the input lines numerically instead of lexicographically.
+
+A sort often consists of three parts - a comparison which determines the ordering of any pair of objects, an exchange which reverses their order, and a sorting algorithm which makes comparisons and exchanges until the objects are in order. The sorting algorithm is independent of the comparison and exchange operations, so by passing different comparison and exchange functions to it, we can arrange to sort by different criteria. This is the approach taken in our new sort.
+
+The lexicographic comparison of two lines is done by strcmp and swapping by swap as before; we will also need a routine numcmp which compares two lines on the basis of numeric value and returns the same kind of condition indication as strcmp does. These three functions are declared in main and pointers to them are passed to sort. sort in turn calls the functions via the pointers. We have skimped on error processing for arguments, so as to concentrate on the main issues.
+
+EditCopyc_115_01#include <stdio.h>
+#include <string.h>
+#define LINES 100 /* max number of lines to be sorted */
+
+main(argc, argv) /* sort input lines */
+int argc;
+char *argv[];
+{
+  char *lineptr[LINES]; /* pointers to text lines */
+  int nlines; /* number of input lines read */
+  int strcmp(), numcmp(); /* comparison functions */
+  int swap(); /* exchange function */
+  int numeric = 0; /* 1 if numeric sort */
+
+  if (argc>1 && argv[1][0] == '-' && argv[1][1] == 'n')
+    numeric = 1;
+  if ((nlines = readlines(lineptr, LINES)) >= 0) {
+    if (numeric)
+      sort(lineptr, nlines, numcmp, swap);
+    else
+      sort(lineptr, nlines, strcmp, swap);
+    writelines(lineptr, nlines);
+  } else
+      printf("input too big to sort\n");
+}
+strcmp, numcmp and swap are addresses of functions; since they are known to be functions, the & operator is not necessary, in the same way that it is not needed before an array name. The compiler arranges for the address of the function to be passed.
+
+The second step is to modify sort:
+
+EditCopyc_116_01sort(v, n, comp, exch) /* sort strings v[0]...v[n-1] */
+char *v[]; /* into increasing order */
+int n;
+int (*comp)(), (*exch)();
+{
+  int gap, i, j;
+
+  for (gap = n/2; gap > 0; gap /= 2)
+    for (i = gap; i < n; i++)
+      for (j = i-gap; j >= 0; j -= gap) {
+        if ((*comp)(v[j], v[j+gap]) <= 0)
+          break;
+        (*exch)(&v[j], &v[j+gap]);
+      }
+}
+The declarations should be studied with some care.
+
+int (*comp) ()
+says that comp is a pointer to a function that returns an int. The first set of parentheses are necessary; without them,
+
+int *comp()
+would say that comp is a function returning a pointer to an int, which is quite a different thing.
+
+The use of comp in the line
+
+if ((*comp)(v[j], v[j+gap]) <= 0)
+is consistent with the declaration: comp is a pointer to a function, *comp is the function, and
+
+(*comp)(v[j], v[j+gap])
+is the call to it. The parentheses are needed so the components are correctly associated.
+
+We have already shown strcmp, which compares two strings. Here is numcmp, which compares two strings on a leading numeric value:
+
+EditCopyc_117_01numcmp(s1, s2) /* compare s1 and s2 numerically */
+char *s1, *s2;
+{
+  double atof(), v1, v2;
+
+  v1 = atof(s1);
+  v2 = atof(s2);
+  if (v1 < v2)
+    return(-1);
+  else if (v1 > v2)
+    return(1);
+  else
+    return(0);
+}
+The final step is to add the function swap which exchanges two pointers. This is adapted directly from what we presented early in the chapter.
+
+EditCopyc_117_02swap(px, py) /* interchange *px and *py */
+char *px[], *py[];
+{
+  char *temp;
+
+  temp = *px;
+  *px = *py;
+  *py = temp;
+}
